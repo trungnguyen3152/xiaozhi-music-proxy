@@ -1,0 +1,14 @@
+{
+  "name": "xiaozhi-music-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Audio-only YouTube proxy for the ESP32 XiaoZhi device: search + stream raw PCM.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
