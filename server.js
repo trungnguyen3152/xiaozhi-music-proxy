@@ -66,13 +66,21 @@ app.get('/play', (req, res) => {
   ffmpeg.stderr.on('data', (chunk) => { ffmpegStderr += chunk.toString(); });
 
   // Guards every response-sending path below: yt-dlp and ffmpeg can each
-  // independently fail (e.g. both missing from PATH), and without this a
-  // second handler calling res.status()/res.json() after the first already
-  // responded throws ERR_HTTP_HEADERS_SENT and crashes the process.
+  // independently fail, and this also has to survive a real streaming
+  // footgun. The first version mixed `ffmpeg.stdout.once('data', ...)`
+  // (to send headers only once real audio shows up) with
+  // `ffmpeg.stdout.pipe(res)` for the actual transfer - two separate 'data'
+  // consumers on the same stream. In production that produced HTTP 200 with
+  // a 0-byte body nearly every time: pipe() wants to manage the stream's
+  // flow itself, and attaching a plain 'data' listener first can and did
+  // interfere with it. Forwarding every chunk through a single manual
+  // listener (no .pipe() on this stream) removes that interaction.
   let responded = false;
+  let headersSent = false;
 
-  ffmpeg.stdout.once('data', () => {
-    if (responded) return;
+  function sendHeadersIfNeeded() {
+    if (headersSent) return;
+    headersSent = true;
     responded = true;
     res.status(200);
     res.setHeader('Content-Type', 'audio/l16'); // raw PCM, not a container format
@@ -80,10 +88,17 @@ app.get('/play', (req, res) => {
     res.setHeader('X-Channels', String(CHANNELS));
     res.setHeader('X-Sample-Format', 's16le');
     res.setHeader('Cache-Control', 'no-store');
-  });
+  }
 
   ytdlp.stdout.pipe(ffmpeg.stdin);
-  ffmpeg.stdout.pipe(res);
+
+  ffmpeg.stdout.on('data', (chunk) => {
+    sendHeadersIfNeeded();
+    res.write(chunk);
+  });
+  ffmpeg.stdout.on('end', () => {
+    if (!res.writableEnded) res.end();
+  });
 
   const cleanup = () => {
     ytdlp.kill('SIGKILL');
