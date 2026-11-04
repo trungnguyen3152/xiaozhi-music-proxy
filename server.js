@@ -29,6 +29,32 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+// GET /debug?q=<search text>
+// Runs yt-dlp alone (no ffmpeg, no streaming) and reports its exit code and
+// output, to see exactly what's failing on the deployed container without
+// needing access to its logs.
+app.get('/debug', (req, res) => {
+  const query = sanitizeQuery(req.query.q) || 'test song';
+  const ytdlp = spawn('yt-dlp', [
+    '-f', 'bestaudio',
+    '--no-playlist',
+    '--no-progress',
+    '-g',
+    `ytsearch1:${query}`,
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  let stdout = '';
+  let stderr = '';
+  ytdlp.stdout.on('data', (c) => { stdout += c.toString(); });
+  ytdlp.stderr.on('data', (c) => { stderr += c.toString(); });
+  ytdlp.on('error', (err) => {
+    res.json({ spawnError: String(err) });
+  });
+  ytdlp.on('exit', (code) => {
+    res.json({ code, stdout: stdout.slice(0, 2000), stderr: stderr.slice(0, 4000) });
+  });
+});
+
 // GET /play?q=<search text>
 // Streams raw signed 16-bit little-endian mono PCM at 24000 Hz: the first
 // YouTube search result's audio track, start to finish.
