@@ -58,6 +58,9 @@ app.get('/health', (_req, res) => {
 app.get('/debug', (req, res) => {
   const query = sanitizeQuery(req.query.q) || 'test song';
   const ytdlp = spawn('yt-dlp', [
+    '-4', // force IPv4: YouTube scores a whole IPv6 /64 as one unit, so a
+          // single noisy neighbour on the host's IPv6 range can get everyone
+          // flagged - IPv4 is less harshly scored and free to try first.
     '-f', 'bestaudio',
     '--no-playlist',
     '--no-progress',
@@ -93,6 +96,7 @@ app.get('/play', (req, res) => {
   // re-encodes to raw PCM on its stdout. Neither process touches disk, and
   // nothing here ever downloads/decodes the video track.
   const ytdlp = spawn('yt-dlp', [
+    '-4',
     '-f', 'bestaudio',
     '--no-playlist',
     '--no-progress',
