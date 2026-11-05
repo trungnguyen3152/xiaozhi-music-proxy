@@ -7,9 +7,31 @@
 // extra decoder on-device.
 const express = require('express');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// YouTube blocks requests from datacenter IPs (Railway included) with
+// "Sign in to confirm you're not a bot" even though the exact same yt-dlp
+// command works fine from a residential IP. Cookies from a real, logged-in
+// YouTube session are the practical fix. Set the YOUTUBE_COOKIES Railway
+// variable to the contents of a cookies.txt file (Netscape format, e.g.
+// exported with the "Get cookies.txt LOCALLY" browser extension while
+// logged into youtube.com) - never put the actual cookie values in code or
+// chat, only in Railway's own Variables UI.
+let cookiesFilePath = null;
+if (process.env.YOUTUBE_COOKIES) {
+  cookiesFilePath = path.join(os.tmpdir(), 'youtube-cookies.txt');
+  fs.writeFileSync(cookiesFilePath, process.env.YOUTUBE_COOKIES, 'utf8');
+  console.log('Loaded YOUTUBE_COOKIES into', cookiesFilePath);
+}
+
+function cookieArgs() {
+  return cookiesFilePath ? ['--cookies', cookiesFilePath] : [];
+}
 
 // Matches this project's board config.h: AUDIO_OUTPUT_SAMPLE_RATE 24000,
 // mono. Keeping the proxy's output in that exact format means the firmware
@@ -39,6 +61,7 @@ app.get('/debug', (req, res) => {
     '-f', 'bestaudio',
     '--no-playlist',
     '--no-progress',
+    ...cookieArgs(),
     '-g',
     `ytsearch1:${query}`,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -73,6 +96,7 @@ app.get('/play', (req, res) => {
     '-f', 'bestaudio',
     '--no-playlist',
     '--no-progress',
+    ...cookieArgs(),
     '-o', '-',
     `ytsearch1:${query}`,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
