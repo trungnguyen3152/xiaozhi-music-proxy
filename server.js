@@ -66,7 +66,7 @@ app.get('/debug', (req, res) => {
     '--no-progress',
     ...cookieArgs(),
     '-g',
-    `ytsearch1:${query}`,
+    `scsearch1:${query}`,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
   let stdout = '';
@@ -91,7 +91,7 @@ app.get('/play', (req, res) => {
     return;
   }
 
-  // yt-dlp resolves "ytsearch1:<query>" to the top result and streams its
+  // yt-dlp resolves "scsearch1:<query>" to the top result and streams its
   // best audio-only track to stdout; ffmpeg reads that from its stdin and
   // re-encodes to raw PCM on its stdout. Neither process touches disk, and
   // nothing here ever downloads/decodes the video track.
@@ -102,7 +102,7 @@ app.get('/play', (req, res) => {
     '--no-progress',
     ...cookieArgs(),
     '-o', '-',
-    `ytsearch1:${query}`,
+    `scsearch1:${query}`,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
   const ffmpeg = spawn('ffmpeg', [
